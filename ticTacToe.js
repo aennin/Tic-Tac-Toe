@@ -1,126 +1,133 @@
-// The Gameboard represents the state of the board
-function Gameboard () {
+// The Gameboard module
+const Gameboard = (() => {
     const rows = 3;
     const columns = 3;
-    const board = [];
+    const board = Array(rows).fill().map(() => Array(columns).fill(0));
 
-    // Create a 2d array that will represent the state of the game board
-    for (let i = 0; i < rows; i++) {
-        board[i] = [];
-        for (let j = 0; j < columns; j++) {
-            board[i].push(Grid())
-        }
-    }
-
-    // Method to get the current state of the board
     const getBoard = () => board;
 
-    // To place a marker, we need to find an available grids
-    /* const getAvailableGrids = () => {
-        const availableGrids = [];
-
-        for (let row of board) {
-            for (let cell of row) {
-                if (cell.getValue() === 0) {
-                    availableGrids.push(cell);
-                }
-            }
-        }
-        return availableGrids;
-    } */
-
-    // Method to place a marker on the board
     const placeMarker = (row, col, player) => {
-        const cell = board[row][col];
-        if(cell.getValue() === 0) {
-            cell.marker(player);
+        if (board[row][col] === 0) {
+            board[row][col] = player;
             return true;
         }
         return false;
     };
 
-    // Method to check for a winner
     const checkWinner = () => {
-        const lines = [
-            // Rows
-            [board[0][0], board[0][1], board[0][2]],
-            [board[1][0], board[1][1], board[1][2]],
-            [board[2][0], board[2][1], board[2][2]],
-            // Columns
-            [board[0][0], board[1][0], board[2][0]],
-            [board[0][1], board[1][1], board[2][1]],
-            [board[0][2], board[1][2], board[2][2]],
-    
-            // Diagonals
-            [board[0][0], board[1][1], board[2][2]],
-            [board[0][2], board[1][1], board[2][0]],
-        ];
-    
-        for (let line of lines) {
-            const [a, b, c] = line;
-            if (a.getValue() !== 0 && a.getValue() === b.getValue() && a.getValue() === c.getValue()) {
-                return a.getValue(); // Returns 1 or 2 indicating the winning player
+        // Check rows
+        for (let row = 0; row < rows; row++) {
+            if (board[row][0] !== 0 && 
+                board[row][0] === board[row][1] && 
+                board[row][0] === board[row][2]) {
+                return board[row][0];
             }
         }
+
+        // Check columns
+        for (let col = 0; col < columns; col++) {
+            if (board[0][col] !== 0 && 
+                board[0][col] === board[1][col] && 
+                board[0][col] === board[2][col]) {
+                return board[0][col];
+            }
+        }
+
+        // Check diagonals
+        if (board[0][0] !== 0 && 
+            board[0][0] === board[1][1] && 
+            board[0][0] === board[2][2]) {
+            return board[0][0];
+        }
+
+        if (board[0][2] !== 0 && 
+            board[0][2] === board[1][1] && 
+            board[0][2] === board[2][0]) {
+            return board[0][2];
+        }
+
         return 0; // No winner
     };
 
-
-    // Method to check for a Draw
     const isDraw = () => {
-        for (let row of board) {
-            for(let cell of row) {
-                if (cell.getValue() === 0) {
-                    return false; // At least one cell is unmarked
-                }
-            }
-        }
+        return board.flat().every(cell => cell !== 0) && checkWinner() === 0;
+    };
 
-        return checkWinner() === 0 // True if no winner and all cells are marked
-    }
-
-    // Method to reset board 
     const resetBoard = () => {
-        for (let row of board) {
-            for (let cell of row) {
-                cell.marker(0); // Reset each cell to unmarked
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < columns; col++) {
+                board[row][col] = 0;
             }
         }
     };
 
-    return { 
-        getBoard, placeMarker, checkWinner, isDraw, resetBoard
+    return { getBoard, placeMarker, checkWinner, isDraw, resetBoard };
+})();
+
+// Game controller
+const GameController = (() => {
+    let currentPlayer = 1;
+    const displayBoard = document.getElementById("display-board");
+    const cells = document.querySelectorAll(".cell");
+    const resetButton = document.getElementById("reset");
+
+    const updateDisplay = (message) => {
+        displayBoard.textContent = message;
     };
 
-    
-}
+    const disableAllCells = () => {
+        cells.forEach(cell => {
+            cell.disabled = true;
+        });
+    };
 
-/*
-** A Grid represents one "square" on the board and can have one of
-** 0: no mark is in the square,
-** 1: Player One's mark,
-** 2: Player two's mark
-*/
+    const enableAllCells = () => {
+        cells.forEach(cell => {
+            cell.disabled = false;
+            cell.textContent = "";
+            cell.classList.remove("x", "o");
+        });
+    };
 
-function Grid () {
-    let value = 0;
-    
-    // Accept a player's mark to change the value of the grid
-    const marker = (player) => {
-        if(value === 0) {
-            value = player;
-            return true; //Mark successful
+    const handleCellClick = (e) => {
+        const cell = e.target;
+        const row = parseInt(cell.dataset.row);
+        const col = parseInt(cell.dataset.col);
+
+        if (Gameboard.placeMarker(row, col, currentPlayer)) {
+            cell.textContent = currentPlayer === 1 ? "X" : "O";
+            cell.classList.add(currentPlayer === 1 ? "x" : "o");
+            cell.disabled = true;
+
+            const winner = Gameboard.checkWinner();
+            if (winner !== 0) {
+                updateDisplay(`Player ${winner === 1 ? 'X' : 'O'} wins!`);
+                disableAllCells();
+            } else if (Gameboard.isDraw()) {
+                updateDisplay("It's a draw!");
+            } else {
+                currentPlayer = currentPlayer === 1 ? 2 : 1;
+                updateDisplay(`Player ${currentPlayer === 1 ? 'X' : 'O'}'s turn`);
+            }
         }
-
-        return false; // Cell already marked
     };
 
-    // How we will retrieve the current value of this grid through closure
+    const resetGame = () => {
+        Gameboard.resetBoard();
+        enableAllCells();
+        currentPlayer = 1;
+        updateDisplay("Player X's turn");
+    };
 
-    const getValue = () => value;
+    const init = () => {
+        cells.forEach(cell => {
+            cell.addEventListener("click", handleCellClick);
+        });
+        resetButton.addEventListener("click", resetGame);
+    };
 
-    return {marker, getValue}
+    return { init };
+})();
 
-}
-
-
+// Initialize the game
+GameController.init();
